@@ -159,3 +159,33 @@ CREATE TABLE IF NOT EXISTS price_trends (
   UNIQUE KEY uq_price_trends (crop, region, date),
   INDEX idx_price_crop_region (crop, region)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Reviews and ratings
+CREATE TABLE IF NOT EXISTS reviews (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  listing_id BIGINT NOT NULL,
+  reviewer_user_id BIGINT NOT NULL,
+  rating TINYINT NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_review_listing_reviewer (listing_id, reviewer_user_id),
+  INDEX idx_reviews_listing (listing_id),
+  INDEX idx_reviews_reviewer (reviewer_user_id),
+  CONSTRAINT fk_review_listing FOREIGN KEY (listing_id) REFERENCES produce_listings(id) ON DELETE CASCADE,
+  CONSTRAINT fk_review_reviewer FOREIGN KEY (reviewer_user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Search logs for analytics
+CREATE TABLE IF NOT EXISTS search_logs (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id BIGINT NULL,
+  search_term VARCHAR(255) NOT NULL,
+  filters JSON NULL,
+  result_count INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_search_logs_user (user_id),
+  INDEX idx_search_logs_term (search_term),
+  INDEX idx_search_logs_date (created_at),
+  CONSTRAINT fk_search_logs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

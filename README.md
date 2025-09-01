@@ -1,68 +1,31 @@
-# 🌾 Ethio Farmers - Agricultural Marketplace
 
-A comprehensive e-commerce platform connecting Ethiopian farmers directly with buyers, eliminating intermediaries and ensuring fair prices for both parties.
+# 🌾 Ethio Farmers - Backend API
 
-## 🚀 Features
+This is the backend for Ethio Farmers, an agricultural marketplace connecting Ethiopian farmers and buyers. The backend provides RESTful APIs for user authentication, product listings, order management, and more.
 
-### **For Farmers:**
-- ✅ Create and manage product listings
-- ✅ Track orders and manage inventory
-- ✅ Set competitive pricing
-- ✅ Receive direct payments
-- ✅ Analytics dashboard
+## 🚀 Backend Features
 
-### **For Buyers:**
-- ✅ Browse fresh produce from local farmers
-- ✅ Advanced search and filtering
-- ✅ Shopping cart functionality
-- ✅ Secure checkout process
-- ✅ Order tracking
-- ✅ Product reviews and ratings
-
-### **Platform Features:**
-- ✅ User authentication (Firebase)
-- ✅ Role-based access control
-- ✅ Real-time inventory management
-- ✅ Responsive design
-- ✅ Multi-language support (English/Amharic ready)
+- User authentication (JWT, Firebase Admin)
+- Role-based access control
+- Product listing and management
+- Order processing system
+- Real-time inventory management
+- Notifications (planned)
+- Analytics dashboard (planned)
 
 ## 🛠️ Tech Stack
 
-### **Frontend:**
-- **React 18** with Vite
-- **Tailwind CSS** for styling
-- **React Router** for navigation
-- **Firebase Authentication**
-- **Lucide React** for icons
+- Node.js with Express
+- MySQL database
+- Firebase Admin SDK
+- JWT token verification
 
-### **Backend:**
-- **Node.js** with Express
-- **MySQL** database
-- **Firebase Admin SDK**
-- **JWT token verification**
+## 📦 Setup
 
-
-### **✅ Completed:**
-- User authentication system
-- Product listing and management
-- Shopping cart functionality
-- Order processing system
-- Role-based access control
-- Responsive UI design
-- Database schema and API
-
-### **🚧 In Progress:**
-- Payment integration
-- Real-time notifications
-- Image upload system
-- Advanced analytics
-
-### **📋 Planned:**
-- Mobile app development
-- Multi-language support
-- Advanced search algorithms
-- Delivery tracking
-- Farmer verification system
+1. Clone the repository
+2. Install dependencies: `npm install` (in the `server` folder)
+3. Configure environment variables in `.env`
+4. Start the server: `npm start` or `node src/index.js`
 
 ## 🤝 Contributing
 
@@ -71,6 +34,5 @@ A comprehensive e-commerce platform connecting Ethiopian farmers directly with b
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
-
 
 **Built with ❤️ for Ethiopian Farmers**

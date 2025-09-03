@@ -145,6 +145,24 @@ This backend provides a complete REST API for the Ethiopian Farmers Marketplace,
 - `GET /api/reviews/user` - Get user's reviews
 - `GET /api/reviews/stats` - Get review statistics
 
+Details:
+- Public: `GET /api/reviews/listing/:listingId`, `GET /api/reviews/farmer/:farmerId`
+- Auth required: `POST /api/reviews`, `PUT /api/reviews/:id`, `DELETE /api/reviews/:id`, `GET /api/reviews/user`, `GET /api/reviews/stats`
+- Create review body:
+```json
+{
+  "listingId": 2,
+  "rating": 5,
+  "comment": "Great quality and fresh!"
+}
+```
+Constraints:
+- Only buyers can create reviews.
+- Buyer must have a COMPLETED order containing the listing.
+- One review per buyer per listing.
+
+Responses include reviewer and listing context. Aggregated stats (averages, distributions) are computed from the `reviews` table dynamically.
+
 ### 📈 Dashboard
 - `GET /api/dashboard/buyer` - Buyer dashboard
 - `GET /api/dashboard/farmer` - Farmer dashboard
@@ -153,11 +171,22 @@ This backend provides a complete REST API for the Ethiopian Farmers Marketplace,
 
 ## 🔒 Authentication
 
-All protected endpoints require a valid Firebase ID token in the Authorization header:
+All protected endpoints require an Authorization header. You can use either:
 
+- Firebase ID token (production):
 ```
 Authorization: Bearer <firebase_id_token>
 ```
+
+- Development token (local/testing):
+```
+Authorization: Bearer dev-token-<userId>-<role>
+```
+Examples: `dev-token-7-buyer`, `dev-token-201-farmer`
+
+Notes:
+- With dev tokens, controllers set `req.user.uid = dev-uid-<userId>` and use `req.user.id = <userId>` directly.
+- Most controllers handle dev tokens without requiring a matching `users.firebase_uid` row, but the underlying features still expect valid related data (e.g., orders, listings).
 
 ## 🗄️ Database Schema
 
@@ -170,6 +199,10 @@ The database includes tables for:
 - Notifications
 - Price trends
 - User profiles
+
+Notes specific to reviews:
+- `reviews` uses `reviewer_user_id` (not `user_id`).
+- No `avg_rating` or `review_count` columns exist on `produce_listings` or `users`; averages are computed on read.
 
 ## 🧪 Testing
 

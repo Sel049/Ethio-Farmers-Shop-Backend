@@ -12,15 +12,14 @@ import {
 const router = express.Router();
 
 // Public routes (no authentication required)
-router.get('/market/trends', getPriceTrends);
-router.get('/market/overview', getMarketOverview);
-router.get('/market/seasonal-insights', getSeasonalInsights);
-router.get('/market/comparison', getMarketComparison);
-router.get('/market/popular-produce', getPopularProduce);
+router.get('/trends', getPriceTrends);
+router.get('/overview', getMarketOverview);
+router.get('/seasonal-insights', getSeasonalInsights);
+router.get('/comparison', getMarketComparison);
+router.get('/popular-produce', getPopularProduce);
 
 // Protected routes (authentication required - for data collection)
-router.use(authenticateToken);
-router.post('/market/price-data', addPriceData);
+router.post('/price-data', authenticateToken, addPriceData);
 
 export default router;
 

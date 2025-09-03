@@ -9,10 +9,29 @@ export const authGuard = async (req, res, next) => {
       return res.status(401).json({ error: "Missing token" });
     }
 
+    // Development token handling takes precedence even if Firebase isn't configured
+    // Accept a simple dev token: dev-token-{user_id}-{role?}-{...}
+    if (token === 'dev-token-123' || token.startsWith('dev-token-')) {
+      console.warn("Development token accepted (pre-Firebase check)");
+      const tokenParts = token.split('-');
+      const userId = parseInt(tokenParts[2], 10);
+      let role = 'buyer';
+      if (tokenParts.length >= 4 && ['buyer', 'farmer'].includes(tokenParts[3])) {
+        role = tokenParts[3];
+      }
+      req.user = {
+        uid: isNaN(userId) ? 'dev-user-id' : `dev-uid-${userId}`,
+        id: isNaN(userId) ? undefined : userId,
+        email: 'dev@example.com',
+        role
+      };
+      return next();
+    }
+
     // Check if Firebase is properly configured
     if (!admin.apps.length) {
       console.warn("Firebase not properly configured, skipping token verification");
-      // For development, create a mock user
+      // Fallback generic dev user
       req.user = {
         uid: 'dev-user-id',
         email: 'dev@example.com',
@@ -50,45 +69,25 @@ export const authGuard = async (req, res, next) => {
       if (token === 'dev-token-123' || token.startsWith('dev-token-')) {
         console.warn("Development token accepted");
         
-        // Extract user ID from dev token format: dev-token-{user_id}-{timestamp}
+        // Extract user ID from dev token format: dev-token-{user_id}-{role}-{timestamp}
+        // or dev-token-{user_id} (defaults to buyer role)
         const tokenParts = token.split('-');
         const userId = tokenParts[2]; // Get the user ID part
         
-        // Look up the actual user role from database
-        try {
-          const mysql = await import('mysql2/promise');
-          const pool = mysql.createPool({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_NAME,
-          });
-          
-          const [users] = await pool.query(
-            "SELECT id, role, email, full_name FROM users WHERE id = ?",
-            [userId]
-          );
-          
-          if (users.length === 0) {
-            return res.status(404).json({ error: "User not found" });
-          }
-          
-          const user = users[0];
-          
-          // Create a proper user object that controllers can use
-          req.user = {
-            uid: `dev-uid-${userId}`, // Mock Firebase UID
-            id: parseInt(userId), // MySQL user ID
-            email: user.email,
-            role: user.role // Use actual role from database
-          };
-          
-          await pool.end();
-          return next();
-        } catch (dbError) {
-          console.error("Database error in dev token auth:", dbError);
-          return res.status(500).json({ error: "Authentication error" });
+        // Check if role is specified in token (4th part)
+        let role = 'buyer'; // Default role
+        if (tokenParts.length >= 4 && ['buyer', 'farmer'].includes(tokenParts[3])) {
+          role = tokenParts[3];
         }
+        
+        // Create a proper user object that controllers can use
+        req.user = {
+          uid: `dev-uid-${userId}`, // Mock Firebase UID
+          id: parseInt(userId), // MySQL user ID
+          email: 'dev@example.com',
+          role: role
+        };
+        return next();
       }
       
       return res.status(401).json({ 

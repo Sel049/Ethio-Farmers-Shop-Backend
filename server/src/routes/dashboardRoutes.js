@@ -13,12 +13,12 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Role-specific dashboard routes
-router.get('/dashboard/buyer', getBuyerDashboard);
-router.get('/dashboard/farmer', getFarmerDashboard);
-router.get('/dashboard/admin', getAdminDashboard);
+router.get('/buyer', getBuyerDashboard);
+router.get('/farmer', getFarmerDashboard);
+router.get('/admin', getAdminDashboard);
 
 // Analytics data for charts
-router.get('/dashboard/analytics', getAnalyticsData);
+router.get('/analytics', getAnalyticsData);
 
 export default router;
 

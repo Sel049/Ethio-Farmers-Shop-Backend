@@ -11,14 +11,14 @@ import {
 const router = express.Router();
 
 // Public search routes (no authentication required)
-router.get('/search/listings', searchListings);
-router.get('/search/farmers', searchFarmers);
-router.get('/search/suggestions', getSearchSuggestions);
-router.get('/search/popular', getPopularSearches);
+router.get('/listings', searchListings);
+router.get('/farmers', searchFarmers);
+router.get('/suggestions', getSearchSuggestions);
+router.get('/popular', getPopularSearches);
 
 // Protected routes (authentication required for analytics)
 router.use(authenticateToken);
-router.get('/search/analytics', getSearchAnalytics);
+router.get('/analytics', getSearchAnalytics);
 
 export default router;
 

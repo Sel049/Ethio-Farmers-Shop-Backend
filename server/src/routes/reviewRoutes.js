@@ -13,22 +13,22 @@ import {
 const router = express.Router();
 
 // Public routes (no authentication required)
-router.get('/reviews/listing/:listingId', getListingReviews);
-router.get('/reviews/farmer/:farmerId', getFarmerReviews);
+router.get('/listing/:listingId', getListingReviews);
+router.get('/farmer/:farmerId', getFarmerReviews);
 
 // Protected routes (authentication required)
 router.use(authenticateToken);
 
 // Review management
-router.post('/reviews', createReview);
-router.put('/reviews/:id', updateReview);
-router.delete('/reviews/:id', deleteReview);
+router.post('/', createReview);
+router.put('/:id', updateReview);
+router.delete('/:id', deleteReview);
 
 // User-specific review routes
-router.get('/reviews/user', getUserReviews);
+router.get('/user', getUserReviews);
 
 // Review statistics (admin functionality)
-router.get('/reviews/stats', getReviewStats);
+router.get('/stats', getReviewStats);
 
 export default router;
 

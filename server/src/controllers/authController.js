@@ -157,10 +157,23 @@ export const getUserProfile = async (req, res) => {
   try {
     const uid = req.user.uid;
     
-    const [users] = await pool.query(
-      "SELECT * FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
+    let users;
+    
+    // Handle dev tokens differently
+    if (uid.startsWith('dev-uid-')) {
+      // Dev token - use the user ID directly
+      const userId = uid.replace('dev-uid-', '');
+      [users] = await pool.query(
+        "SELECT * FROM users WHERE id = ?",
+        [userId]
+      );
+    } else {
+      // Real Firebase token - search by firebase_uid
+      [users] = await pool.query(
+        "SELECT * FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
+    }
 
     if (users.length === 0) {
       return res.status(404).json({ error: "User not found" });

@@ -94,16 +94,16 @@ export const getMarketOverview = async (req, res) => {
   try {
     const { region, woreda } = req.query;
 
-    let whereClause = "WHERE pt.date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+    let whereClause = "WHERE date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
     let params = [];
 
     if (region) {
-      whereClause += " AND pt.region = ?";
+      whereClause += " AND region = ?";
       params.push(region);
     }
 
     if (woreda) {
-      whereClause += " AND pt.woreda = ?";
+      whereClause += " AND woreda = ?";
       params.push(woreda);
     }
 
@@ -118,7 +118,7 @@ export const getMarketOverview = async (req, res) => {
         pt.currency
       FROM price_trends pt
       ${whereClause}
-      GROUP BY pt.crop
+      GROUP BY pt.crop, pt.currency 
       ORDER BY data_points DESC
       LIMIT 10`,
       params
@@ -134,10 +134,10 @@ export const getMarketOverview = async (req, res) => {
         ROUND(((pt1.avg_price - pt2.avg_price) / pt2.avg_price) * 100, 2) as change_percentage
       FROM price_trends pt1
       JOIN (
-        SELECT crop, region, woreda, MAX(date) as max_date
+        SELECT crop, region, woreda, currency, MAX(date) as max_date
         FROM price_trends
         ${whereClause}
-        GROUP BY crop, region, woreda
+        GROUP BY crop, region, woreda, currency
       ) pt_max ON pt1.crop = pt_max.crop 
         AND (pt1.region = pt_max.region OR (pt1.region IS NULL AND pt_max.region IS NULL))
         AND (pt1.woreda = pt_max.woreda OR (pt1.woreda IS NULL AND pt_max.woreda IS NULL))
@@ -159,7 +159,8 @@ export const getMarketOverview = async (req, res) => {
         AVG(pt.avg_price) as overall_avg_price,
         pt.currency
       FROM price_trends pt
-      ${whereClause}`,
+      ${whereClause}
+      GROUP BY pt.currency`,
       params
     );
 

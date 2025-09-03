@@ -14,7 +14,19 @@ export const upsertUser = async (req, res) => {
 
 export const getMe = async (req, res) => {
   const uid = req.user.uid;
-  const [rows] = await pool.query("SELECT * FROM users WHERE firebase_uid = ?", [uid]);
+  
+  let rows;
+  
+  // Handle dev tokens differently
+  if (uid.startsWith('dev-uid-')) {
+    // Dev token - use the user ID directly
+    const userId = uid.replace('dev-uid-', '');
+    [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [userId]);
+  } else {
+    // Real Firebase token - search by firebase_uid
+    [rows] = await pool.query("SELECT * FROM users WHERE firebase_uid = ?", [uid]);
+  }
+  
   if (rows.length === 0) return res.status(404).json({ error: "Profile not found" });
   const row = rows[0];
   res.json({
@@ -34,9 +46,24 @@ export const getMe = async (req, res) => {
 export const updateMe = async (req, res) => {
   const uid = req.user.uid;
   const { role, fullName, phoneNumber, email, region, woreda } = req.body || {};
-  const [existing] = await pool.query("SELECT id FROM users WHERE firebase_uid = ?", [uid]);
+  
+  let existing;
+  
+  // Handle dev tokens differently
+  if (uid.startsWith('dev-uid-')) {
+    // Dev token - use the user ID directly
+    const userId = uid.replace('dev-uid-', '');
+    [existing] = await pool.query("SELECT id FROM users WHERE id = ?", [userId]);
+  } else {
+    // Real Firebase token - search by firebase_uid
+    [existing] = await pool.query("SELECT id FROM users WHERE firebase_uid = ?", [uid]);
+  }
+  
   if (existing.length === 0) return res.status(404).json({ error: "Profile not found" });
+  
   const toNullIfEmpty = (v) => (v === undefined || v === "" ? null : v);
+  const userId = existing[0].id;
+  
   await pool.query(
     `UPDATE users
      SET role = COALESCE(?, role),
@@ -45,7 +72,7 @@ export const updateMe = async (req, res) => {
          email = COALESCE(?, email),
          region = COALESCE(?, region),
          woreda = COALESCE(?, woreda)
-     WHERE firebase_uid = ?`,
+     WHERE id = ?`,
     [
       toNullIfEmpty(role),
       toNullIfEmpty(fullName),
@@ -53,10 +80,11 @@ export const updateMe = async (req, res) => {
       toNullIfEmpty(email),
       toNullIfEmpty(region),
       toNullIfEmpty(woreda),
-      uid,
+      userId,
     ]
   );
-  const [rows] = await pool.query("SELECT * FROM users WHERE firebase_uid = ?", [uid]);
+  
+  const [rows] = await pool.query("SELECT * FROM users WHERE id = ?", [userId]);
   const row = rows[0];
   res.json({
     id: row.id,

@@ -31,17 +31,17 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API Routes
+// API Routes - Order matters! More specific routes first
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/market', marketTrendsRoutes);
+app.use('/api/favorites', favoriteRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/reviews', reviewRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 app.use('/api', listingRoutes);
 app.use('/api', orderRoutes);
-app.use('/api', marketTrendsRoutes);
-app.use('/api', favoriteRoutes);
-app.use('/api', notificationRoutes);
-app.use('/api', searchRoutes);
-app.use('/api', reviewRoutes);
-app.use('/api', dashboardRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

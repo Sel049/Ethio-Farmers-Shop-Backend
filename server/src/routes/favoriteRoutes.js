@@ -16,15 +16,15 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Favorite management
-router.post('/favorites', addToFavorites);
-router.delete('/favorites/:listingId', removeFromFavorites);
-router.post('/favorites/bulk', bulkUpdateFavorites);
+router.post('/', addToFavorites);
+router.delete('/:listingId', removeFromFavorites);
+router.post('/bulk', bulkUpdateFavorites);
 
 // Favorite retrieval
-router.get('/favorites/listings', getFavoriteListings);
-router.get('/favorites/farmers', getFavoriteFarmers);
-router.get('/favorites/check/:listingId', checkFavoriteStatus);
-router.get('/favorites/stats', getFavoriteStats);
+router.get('/listings', getFavoriteListings);
+router.get('/farmers', getFavoriteFarmers);
+router.get('/check/:listingId', checkFavoriteStatus);
+router.get('/stats', getFavoriteStats);
 
 export default router;
 

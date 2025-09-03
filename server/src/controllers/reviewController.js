@@ -4,33 +4,41 @@ import { pool } from "../config/db.js";
 export const createReview = async (req, res) => {
   try {
     const uid = req.user.uid;
-    const { listingId, rating, comment, reviewType = 'listing' } = req.body;
+    const { listingId, rating, comment } = req.body;
 
     if (!listingId || !rating || rating < 1 || rating > 5) {
       return res.status(400).json({ error: "Listing ID and valid rating (1-5) are required" });
     }
 
-    // Get user ID and verify role
-    const [userRows] = await pool.query(
-      "SELECT id, role FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
+    // Get user ID and verify role (support dev tokens like other controllers)
+    let userId, userRole;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id;
+      userRole = req.user.role;
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id, role FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
 
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      userId = userRows[0].id;
+      userRole = userRows[0].role;
     }
 
-    if (userRows[0].role !== 'buyer') {
+    if (userRole !== 'buyer') {
       return res.status(403).json({ error: "Only buyers can create reviews" });
     }
 
-    const userId = userRows[0].id;
-
-    // Verify listing exists and user has ordered from it
+    // Verify listing exists and user has ordered from it (via order_items)
     const [listings] = await pool.query(
       `SELECT l.*, o.id as order_id, o.status as order_status
        FROM produce_listings l
-       JOIN orders o ON l.id = o.listing_id
+       JOIN order_items oi ON oi.listing_id = l.id
+       JOIN orders o ON o.id = oi.order_id
        WHERE l.id = ? AND o.buyer_user_id = ? AND o.status = 'completed'`,
       [listingId, userId]
     );
@@ -43,7 +51,7 @@ export const createReview = async (req, res) => {
 
     // Check if user already reviewed this listing
     const [existingReviews] = await pool.query(
-      "SELECT id FROM reviews WHERE user_id = ? AND listing_id = ?",
+      "SELECT id FROM reviews WHERE reviewer_user_id = ? AND listing_id = ?",
       [userId, listingId]
     );
 
@@ -54,42 +62,12 @@ export const createReview = async (req, res) => {
     // Create review
     const [result] = await pool.query(
       `INSERT INTO reviews (
-        user_id, listing_id, rating, comment, review_type
-      ) VALUES (?, ?, ?, ?, ?)`,
-      [userId, listingId, rating, comment || null, reviewType]
+        reviewer_user_id, listing_id, rating, comment
+      ) VALUES (?, ?, ?, ?)`,
+      [userId, listingId, rating, comment || null]
     );
 
-    // Update listing average rating
-    await pool.query(
-      `UPDATE produce_listings 
-       SET avg_rating = (
-         SELECT AVG(rating) FROM reviews WHERE listing_id = ?
-       ),
-       review_count = (
-         SELECT COUNT(*) FROM reviews WHERE listing_id = ?
-       )
-       WHERE id = ?`,
-      [listingId, listingId, listingId]
-    );
-
-    // Update farmer's average rating
-    const [farmerUpdate] = await pool.query(
-      `UPDATE users u
-       SET avg_rating = (
-         SELECT AVG(r.rating) 
-         FROM reviews r
-         JOIN produce_listings l ON r.listing_id = l.id
-         WHERE l.farmer_user_id = u.id
-       ),
-       review_count = (
-         SELECT COUNT(r.id)
-         FROM reviews r
-         JOIN produce_listings l ON r.listing_id = l.id
-         WHERE l.farmer_user_id = u.id
-       )
-       WHERE u.id = ?`,
-      [listings[0].farmer_user_id]
-    );
+    // Note: Skipping aggregate updates because schema has no avg_rating/review_count columns
 
     res.status(201).json({
       id: result.insertId,
@@ -98,8 +76,7 @@ export const createReview = async (req, res) => {
         id: result.insertId,
         listingId,
         rating,
-        comment,
-        reviewType
+        comment
       }
     });
   } catch (error) {
@@ -128,10 +105,10 @@ export const getListingReviews = async (req, res) => {
       `SELECT 
         r.*,
         u.full_name as reviewer_name,
-        u.avatar_url as reviewer_avatar,
+        NULL as reviewer_avatar,
         u.region as reviewer_region
        FROM reviews r
-       JOIN users u ON r.user_id = u.id
+       JOIN users u ON r.reviewer_user_id = u.id
        ${whereClause}
        ORDER BY r.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -213,11 +190,11 @@ export const getFarmerReviews = async (req, res) => {
         l.title as listing_title,
         l.crop as listing_crop,
         u.full_name as reviewer_name,
-        u.avatar_url as reviewer_avatar,
+        NULL as reviewer_avatar,
         u.region as reviewer_region
        FROM reviews r
        JOIN produce_listings l ON r.listing_id = l.id
-       JOIN users u ON r.user_id = u.id
+       JOIN users u ON r.reviewer_user_id = u.id
        ${whereClause}
        ORDER BY r.created_at DESC
        LIMIT ? OFFSET ?`,
@@ -289,21 +266,26 @@ export const updateReview = async (req, res) => {
       return res.status(400).json({ error: "Valid rating (1-5) is required" });
     }
 
-    // Get user ID
-    const [userRows] = await pool.query(
-      "SELECT id FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
+    // Get user ID (support dev tokens)
+    let userId;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id;
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
 
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      userId = userRows[0].id;
     }
-
-    const userId = userRows[0].id;
 
     // Verify review exists and belongs to user
     const [reviews] = await pool.query(
-      "SELECT * FROM reviews WHERE id = ? AND user_id = ?",
+      "SELECT * FROM reviews WHERE id = ? AND reviewer_user_id = ?",
       [id, userId]
     );
 
@@ -319,30 +301,7 @@ export const updateReview = async (req, res) => {
       [rating, comment || null, id]
     );
 
-    // Update listing average rating
-    await pool.query(
-      `UPDATE produce_listings 
-       SET avg_rating = (
-         SELECT AVG(rating) FROM reviews WHERE listing_id = ?
-       )
-       WHERE id = ?`,
-      [review.listing_id, review.listing_id]
-    );
-
-    // Update farmer's average rating
-    const [farmerUpdate] = await pool.query(
-      `UPDATE users u
-       SET avg_rating = (
-         SELECT AVG(r.rating) 
-         FROM reviews r
-         JOIN produce_listings l ON r.listing_id = l.id
-         WHERE l.farmer_user_id = u.id
-       )
-       WHERE u.id = (
-         SELECT farmer_user_id FROM produce_listings WHERE id = ?
-       )`,
-      [review.listing_id]
-    );
+    // Note: Skipping aggregate updates because schema has no avg_rating/review_count columns
 
     res.json({ message: "Review updated successfully" });
   } catch (error) {
@@ -357,21 +316,26 @@ export const deleteReview = async (req, res) => {
     const uid = req.user.uid;
     const { id } = req.params;
 
-    // Get user ID
-    const [userRows] = await pool.query(
-      "SELECT id FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
+    // Get user ID (support dev tokens)
+    let userId;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id;
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
 
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      userId = userRows[0].id;
     }
-
-    const userId = userRows[0].id;
 
     // Verify review exists and belongs to user
     const [reviews] = await pool.query(
-      "SELECT * FROM reviews WHERE id = ? AND user_id = ?",
+      "SELECT * FROM reviews WHERE id = ? AND reviewer_user_id = ?",
       [id, userId]
     );
 
@@ -384,39 +348,7 @@ export const deleteReview = async (req, res) => {
     // Delete review
     await pool.query("DELETE FROM reviews WHERE id = ?", [id]);
 
-    // Update listing average rating
-    await pool.query(
-      `UPDATE produce_listings 
-       SET avg_rating = (
-         SELECT COALESCE(AVG(rating), 0) FROM reviews WHERE listing_id = ?
-       ),
-       review_count = (
-         SELECT COUNT(*) FROM reviews WHERE listing_id = ?
-       )
-       WHERE id = ?`,
-      [review.listing_id, review.listing_id, review.listing_id]
-    );
-
-    // Update farmer's average rating
-    const [farmerUpdate] = await pool.query(
-      `UPDATE users u
-       SET avg_rating = (
-         SELECT COALESCE(AVG(r.rating), 0)
-         FROM reviews r
-         JOIN produce_listings l ON r.listing_id = l.id
-         WHERE l.farmer_user_id = u.id
-       ),
-       review_count = (
-         SELECT COUNT(r.id)
-         FROM reviews r
-         JOIN produce_listings l ON r.listing_id = l.id
-         WHERE l.farmer_user_id = u.id
-       )
-       WHERE u.id = (
-         SELECT farmer_user_id FROM produce_listings WHERE id = ?
-       )`,
-      [review.listing_id]
-    );
+    // Note: Skipping aggregate updates because schema has no avg_rating/review_count columns
 
     res.json({ message: "Review deleted successfully" });
   } catch (error) {
@@ -431,17 +363,22 @@ export const getUserReviews = async (req, res) => {
     const uid = req.user.uid;
     const { page = 1, limit = 20 } = req.query;
 
-    // Get user ID
-    const [userRows] = await pool.query(
-      "SELECT id FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
+    // Get user ID (support dev tokens)
+    let userId;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id;
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
 
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      userId = userRows[0].id;
     }
-
-    const userId = userRows[0].id;
     const offset = (page - 1) * limit;
 
     // Get user's reviews with listing info
@@ -450,13 +387,13 @@ export const getUserReviews = async (req, res) => {
         r.*,
         l.title as listing_title,
         l.crop as listing_crop,
-        l.image_url as listing_image,
+        NULL as listing_image,
         u.full_name as farmer_name,
         u.region as farmer_region
        FROM reviews r
        JOIN produce_listings l ON r.listing_id = l.id
        JOIN users u ON l.farmer_user_id = u.id
-       WHERE r.user_id = ?
+       WHERE r.reviewer_user_id = ?
        ORDER BY r.created_at DESC
        LIMIT ? OFFSET ?`,
       [userId, parseInt(limit), offset]
@@ -464,7 +401,7 @@ export const getUserReviews = async (req, res) => {
 
     // Get total count
     const [countResult] = await pool.query(
-      "SELECT COUNT(*) as total FROM reviews WHERE user_id = ?",
+      "SELECT COUNT(*) as total FROM reviews WHERE reviewer_user_id = ?",
       [userId]
     );
 
@@ -482,7 +419,7 @@ export const getUserReviews = async (req, res) => {
         COUNT(CASE WHEN rating = 2 THEN 1 END) as two_star,
         COUNT(CASE WHEN rating = 1 THEN 1 END) as one_star
        FROM reviews 
-       WHERE user_id = ?`,
+       WHERE reviewer_user_id = ?`,
       [userId]
     );
 

@@ -16,17 +16,17 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Notification management
-router.post('/notifications', createNotification);
-router.get('/notifications', getUserNotifications);
-router.put('/notifications/:id/read', markNotificationRead);
-router.put('/notifications/read-all', markAllNotificationsRead);
-router.delete('/notifications/:id', deleteNotification);
+router.post('/', createNotification);
+router.get('/', getUserNotifications);
+router.put('/:id/read', markNotificationRead);
+router.put('/read-all', markAllNotificationsRead);
+router.delete('/:id', deleteNotification);
 
 // Notification statistics
-router.get('/notifications/stats', getNotificationStats);
+router.get('/stats', getNotificationStats);
 
 // System notifications (admin functionality)
-router.post('/notifications/system', createSystemNotification);
+router.post('/system', createSystemNotification);
 
 export default router;
 

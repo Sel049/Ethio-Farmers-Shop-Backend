@@ -42,17 +42,20 @@ export const getUserNotifications = async (req, res) => {
     const uid = req.user.uid;
     const { page = 1, limit = 20, unreadOnly = false } = req.query;
 
-    // Get user ID
-    const [userRows] = await pool.query(
-      "SELECT id FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+    // Get user ID - support dev tokens and real Firebase users
+    let userId;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id; // provided by auth middleware for dev tokens
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      userId = userRows[0].id;
     }
-
-    const userId = userRows[0].id;
     const offset = (page - 1) * limit;
 
     let whereClause = "WHERE user_id = ?";
@@ -71,13 +74,13 @@ export const getUserNotifications = async (req, res) => {
       [...params, parseInt(limit), offset]
     );
 
-    // Parse payload JSON for each notification
+    // Normalize payload: if it's a JSON string, parse it; if already object/NULL, leave as is
     notifications.forEach(notification => {
-      if (notification.payload) {
+      if (notification.payload && typeof notification.payload === 'string') {
         try {
           notification.payload = JSON.parse(notification.payload);
         } catch (e) {
-          notification.payload = {};
+          // Keep original string if parsing fails
         }
       }
     });
@@ -121,17 +124,20 @@ export const markNotificationRead = async (req, res) => {
     const uid = req.user.uid;
     const { id } = req.params;
 
-    // Get user ID
-    const [userRows] = await pool.query(
-      "SELECT id FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+    // Get user ID - support dev tokens and real Firebase users
+    let userId;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id;
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      userId = userRows[0].id;
     }
-
-    const userId = userRows[0].id;
 
     // Mark notification as read
     const [result] = await pool.query(
@@ -155,17 +161,20 @@ export const markAllNotificationsRead = async (req, res) => {
   try {
     const uid = req.user.uid;
 
-    // Get user ID
-    const [userRows] = await pool.query(
-      "SELECT id FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+    // Get user ID - support dev tokens and real Firebase users
+    let userId;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id;
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      userId = userRows[0].id;
     }
-
-    const userId = userRows[0].id;
 
     // Mark all notifications as read
     await pool.query(
@@ -186,17 +195,20 @@ export const deleteNotification = async (req, res) => {
     const uid = req.user.uid;
     const { id } = req.params;
 
-    // Get user ID
-    const [userRows] = await pool.query(
-      "SELECT id FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+    // Get user ID - support dev tokens and real Firebase users
+    let userId;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id;
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      userId = userRows[0].id;
     }
-
-    const userId = userRows[0].id;
 
     // Delete notification
     const [result] = await pool.query(
@@ -220,17 +232,20 @@ export const getNotificationStats = async (req, res) => {
   try {
     const uid = req.user.uid;
 
-    // Get user ID
-    const [userRows] = await pool.query(
-      "SELECT id FROM users WHERE firebase_uid = ?",
-      [uid]
-    );
-
-    if (userRows.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+    // Get user ID - support dev tokens and real Firebase users
+    let userId;
+    if (uid && uid.startsWith('dev-uid-')) {
+      userId = req.user.id;
+    } else {
+      const [userRows] = await pool.query(
+        "SELECT id FROM users WHERE firebase_uid = ?",
+        [uid]
+      );
+      if (userRows.length === 0) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      userId = userRows[0].id;
     }
-
-    const userId = userRows[0].id;
 
     // Get notification statistics
     const [stats] = await pool.query(
